@@ -7,3 +7,8 @@ coverage
 .env
 *.log
 .DS_Store
+
+# Test Worktrees
+.test-worktrees/
+.test-worker-worktrees/
+.test-copilot-worktrees/

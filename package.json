@@ -30,6 +30,7 @@
   },
   "homepage": "https://github.com/j108251113/agent-teams-core#readme",
   "dependencies": {
+    "@github/copilot-sdk": "file:../copilot-sdk/nodejs/github-copilot-sdk-0.1.8.tgz",
     "better-sqlite3": "^12.6.2"
   }
 }

@@ -12,7 +12,7 @@ export class Worker extends Agent {
         id: string,
         messageStore: MessageStore,
         contextManager: ContextManager,
-        private worktreeManager: WorktreeManager
+        protected worktreeManager: WorktreeManager
     ) {
         super(id, messageStore, contextManager);
     }
