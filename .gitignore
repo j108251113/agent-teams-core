@@ -1,14 +1,14 @@
 node_modules
 dist
-.agent-worktrees
-agent_logs
-coverage
-.overstory
 .env
 *.log
 .DS_Store
 
-# Test Worktrees
-.test-worktrees/
-.test-worker-worktrees/
-.test-copilot-worktrees/
+# SQLite Database files
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+
+# Agent Teams worktrees (following overstory pattern)
+.agent-teams/
