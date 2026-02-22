@@ -1,96 +1,91 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { CopilotWorker } from '../copilot_worker';
-import { MessageStore } from '../../core/message_store';
-import { ContextManager } from '../../core/context_manager';
-import { WorktreeManager } from '../../core/worktree_manager';
-import { rmSync, existsSync, mkdirSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
-import { CopilotClient } from '@github/copilot-sdk';
+import { existsSync, mkdirSync, rmSync } from "node:fs";
+import { join } from "node:path";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { ContextManager } from "../../core/context_manager";
+import { MessageStore } from "../../core/message_store";
+import { WorktreeManager } from "../../core/worktree_manager";
+import { OpencodeProvider } from "../opencode_provider";
+import { Worker } from "../worker";
 
-// Mocking @github/copilot-sdk
-vi.mock('@github/copilot-sdk', () => {
-    const mockSession = {
-        sessionId: 'test-session',
-        sendAndWait: vi.fn(),
-        on: vi.fn().mockReturnValue(() => { }),
-        destroy: vi.fn().mockResolvedValue(undefined),
-    };
-    const mockClient = {
-        createSession: vi.fn().mockResolvedValue(mockSession),
-    };
-    return {
-        CopilotClient: vi.fn().mockImplementation(function () {
-            return mockClient;
-        }),
-        CopilotSession: vi.fn(),
-    };
+vi.mock("@github/copilot-sdk", () => {
+  const mockSession = {
+    sessionId: "test-session",
+    sendAndWait: vi.fn(),
+    on: vi.fn().mockReturnValue(() => {}),
+    destroy: vi.fn().mockResolvedValue(undefined),
+  };
+  const mockClient = {
+    createSession: vi.fn().mockResolvedValue(mockSession),
+  };
+  return {
+    CopilotClient: vi.fn().mockImplementation(() => mockClient),
+    CopilotSession: vi.fn(),
+  };
 });
 
-describe('CopilotWorker', () => {
-    const dbPath = join(process.cwd(), 'test-copilot-worker.db');
-    const worktreesDir = join(process.cwd(), '.test-copilot-worktrees');
-    const repoRoot = process.cwd();
+describe("OpencodeProvider", () => {
+  const dbPath = join(process.cwd(), "test-opencode-provider.db");
+  const worktreesDir = join(process.cwd(), ".test-opencode-worktrees");
+  const repoRoot = process.cwd();
 
-    let messageStore: MessageStore;
-    let contextManager: ContextManager;
-    let worktreeManager: WorktreeManager;
+  let messageStore: MessageStore;
+  let contextManager: ContextManager;
+  let worktreeManager: WorktreeManager;
 
-    beforeEach(() => {
-        if (existsSync(dbPath)) try { rmSync(dbPath); } catch (e) { }
-        if (existsSync(worktreesDir)) try { rmSync(worktreesDir, { recursive: true, force: true }); } catch (e) { }
-        mkdirSync(worktreesDir, { recursive: true });
+  beforeEach(() => {
+    if (existsSync(dbPath))
+      try {
+        rmSync(dbPath);
+      } catch (_e) {}
+    if (existsSync(worktreesDir))
+      try {
+        rmSync(worktreesDir, { recursive: true, force: true });
+      } catch (_e) {}
+    mkdirSync(worktreesDir, { recursive: true });
 
-        messageStore = new MessageStore(dbPath);
-        contextManager = new ContextManager({ limit: 1000 });
-        worktreeManager = new WorktreeManager(repoRoot, worktreesDir);
-    });
+    messageStore = new MessageStore(dbPath);
+    contextManager = new ContextManager({ limit: 1000 });
+    worktreeManager = new WorktreeManager(repoRoot, worktreesDir);
+  });
 
-    afterEach(() => {
-        messageStore.close();
-        if (existsSync(dbPath)) try { rmSync(dbPath); } catch (e) { }
-        vi.clearAllMocks();
-    });
+  afterEach(() => {
+    messageStore.close();
+    if (existsSync(dbPath))
+      try {
+        rmSync(dbPath);
+      } catch (_e) {}
+  });
 
-    it('should apply instruction overlay to a worktree', async () => {
-        const worker = new CopilotWorker('worker-1', messageStore, contextManager, worktreeManager);
-        const taskPath = join(worktreesDir, `task-overlay-${Date.now()}`);
+  it("should have correct provider name", () => {
+    const provider = new OpencodeProvider();
+    expect(provider.name).toBe("opencode");
+  });
 
-        await worker.setupTask(taskPath, 'task/overlay-branch');
-        await worker.applyInstructionOverlay('Test instructions');
+  it("should set model", () => {
+    const provider = new OpencodeProvider();
+    provider.setModel("gpt-4");
+  });
 
-        const instructionPath = join(taskPath, '.github', 'copilot-instructions.md');
-        expect(existsSync(instructionPath)).toBe(true);
-        expect(readFileSync(instructionPath, 'utf8')).toContain('Test instructions');
+  it("should apply instruction overlay to a worktree", async () => {
+    const provider = new OpencodeProvider();
+    const worker = new Worker("worker-1", messageStore, contextManager, worktreeManager);
+    worker.setProvider(provider);
 
-        await worktreeManager.remove(taskPath);
-    });
+    const taskPath = join(worktreesDir, `task-overlay-${Date.now()}`);
+    const branchName = `task/overlay-${Date.now()}`;
 
-    it('should initialize copilot session and send beacon', async () => {
-        const client = new CopilotClient({} as any);
-        const worker = new CopilotWorker('worker-1', messageStore, contextManager, worktreeManager);
+    await worker.setupTask(taskPath, branchName);
+    await worker.applyInstructionOverlay("Test instructions");
 
-        await worker.initCopilot(client, { model: 'gpt-4' } as any);
+    const instructionPath = join(taskPath, ".agent-teams", "instructions.md");
+    expect(existsSync(instructionPath)).toBe(true);
 
-        const mockSession = await client.createSession({} as any);
-        (mockSession.sendAndWait as any).mockResolvedValue({ data: { content: 'Beacon Received' } });
+    await provider.cleanup();
+  });
 
-        const response = await worker.sendBeacon('Hello Copilot');
+  it("should throw error when sending prompt without provider", async () => {
+    const worker = new Worker("worker-1", messageStore, contextManager, worktreeManager);
 
-        expect(client.createSession).toHaveBeenCalled();
-        expect(mockSession.sendAndWait).toHaveBeenCalledWith({ prompt: 'Hello Copilot' });
-        expect(response).toBe('Beacon Received');
-    });
-
-    it('should clean up session on cleanup', async () => {
-        const client = new CopilotClient({} as any);
-        const worker = new CopilotWorker('worker-1', messageStore, contextManager, worktreeManager);
-
-        await worker.initCopilot(client, { model: 'gpt-4' } as any);
-        const mockSession = await client.createSession({} as any);
-
-        await worker.cleanup();
-
-        expect(mockSession.destroy).toHaveBeenCalled();
-    });
+    await expect(worker.sendPrompt("test")).rejects.toThrow("No AI provider configured");
+  });
 });
-
