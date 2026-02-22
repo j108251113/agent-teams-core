@@ -1,0 +1,9 @@
+node_modules
+dist
+.agent-worktrees
+agent_logs
+coverage
+.overstory
+.env
+*.log
+.DS_Store
