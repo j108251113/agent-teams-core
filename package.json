@@ -5,6 +5,7 @@
   "main": "index.js",
   "devDependencies": {
     "@biomejs/biome": "^2.4.4",
+    "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^25.3.0",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3",
@@ -27,5 +28,8 @@
   "bugs": {
     "url": "https://github.com/j108251113/agent-teams-core/issues"
   },
-  "homepage": "https://github.com/j108251113/agent-teams-core#readme"
+  "homepage": "https://github.com/j108251113/agent-teams-core#readme",
+  "dependencies": {
+    "better-sqlite3": "^12.6.2"
+  }
 }
